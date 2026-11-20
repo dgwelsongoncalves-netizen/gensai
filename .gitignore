@@ -1,0 +1,12 @@
+# Ambiente virtual Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Arquivos de teste, logs locais, credenciais e PDFs sensíveis (LGPD)
+*.pdf
+temp/
+saida/
+logs/
+.env
