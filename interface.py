@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QPushButton,
+    QSizePolicy,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -109,25 +110,31 @@ class AreaDropPDF(QFrame):
         super().__init__()
         self.setAcceptDrops(True)
         self.setObjectName("AreaDrop")
-        self.setMinimumHeight(125)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.setMinimumHeight(120)
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.setContentsMargins(16, 12, 16, 12)
         layout.setSpacing(8)
 
         self.label_titulo = QLabel("Arraste o PDF processual aqui")
         self.label_titulo.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.label_titulo.setStyleSheet("font-size: 14px; font-weight: bold; color: #F1F5F9;")
+        self.label_titulo.setStyleSheet(
+            "font-size: 13px; font-weight: 600; color: #E2E8F0; background: transparent;"
+        )
 
         self.btn_procurar = QPushButton("Procurar PDF no computador...")
         self.btn_procurar.setObjectName("BtnProcurar")
         self.btn_procurar.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_procurar.setMaximumWidth(240)
+        self.btn_procurar.setFixedSize(230, 34)
         self.btn_procurar.clicked.connect(self.abrir_seletor_arquivo)
 
         self.label_arquivo = QLabel("Nenhum arquivo selecionado")
         self.label_arquivo.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.label_arquivo.setStyleSheet("font-size: 12px; color: #94A3B8;")
+        self.label_arquivo.setStyleSheet(
+            "font-size: 12px; color: #8B949E; background: transparent;"
+        )
 
         layout.addWidget(self.label_titulo)
         layout.addWidget(self.btn_procurar, alignment=Qt.AlignmentFlag.AlignCenter)
@@ -162,7 +169,9 @@ class AreaDropPDF(QFrame):
         p = Path(caminho)
         tam_mb = p.stat().st_size / (1024 * 1024)
         self.label_arquivo.setText(f"Selecionado: {p.name} ({tam_mb:.2f} MB)")
-        self.label_arquivo.setStyleSheet("font-size: 12px; color: #38BDF8; font-weight: bold;")
+        self.label_arquivo.setStyleSheet(
+            "font-size: 12px; color: #60A5FA; font-weight: bold; background: transparent;"
+        )
         self.arquivo_selecionado.emit(str(p))
 
 
@@ -172,7 +181,8 @@ class JanelaGensai(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle(f"Gensai PDF v{__version__} — Motor Battousai")
-        self.setMinimumSize(660, 660)
+        self.setMinimumSize(640, 600)
+        self.resize(660, 620)
 
         self._carregar_icone_janela()
 
@@ -194,16 +204,19 @@ class JanelaGensai(QMainWindow):
 
     def _construir_interface(self) -> None:
         central = QWidget()
+        central.setObjectName("CentralWidget")
         self.setCentralWidget(central)
+
         layout = QVBoxLayout(central)
-        layout.setSpacing(14)
-        layout.setContentsMargins(20, 18, 20, 18)
+        layout.setSpacing(11)
+        layout.setContentsMargins(20, 16, 20, 16)
 
         # Banner oculto de atualização automática (GitHub Releases)
         self.banner_update = QFrame()
         self.banner_update.setObjectName("BannerUpdate")
         self.banner_update.setVisible(False)
         lay_up = QHBoxLayout(self.banner_update)
+        lay_up.setContentsMargins(10, 6, 10, 6)
         self.lbl_update = QLabel("")
         self.btn_baixar_update = QPushButton("Baixar atualização")
         self.btn_baixar_update.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -212,8 +225,9 @@ class JanelaGensai(QMainWindow):
         lay_up.addWidget(self.btn_baixar_update)
         layout.addWidget(self.banner_update)
 
-        # Cabeçalho com Logo da Katana + Título
+        # Cabeçalho limpo e integrado (sem caixa ao redor da logo)
         lay_header = QHBoxLayout()
+        lay_header.setContentsMargins(2, 2, 2, 4)
         lay_header.setSpacing(14)
 
         caminho_logo = caminho_recurso("assets/logo.png")
@@ -222,24 +236,24 @@ class JanelaGensai(QMainWindow):
             pixmap = QPixmap(str(caminho_logo))
             lbl_logo.setPixmap(
                 pixmap.scaled(
-                    130,
-                    72,
+                    84,
+                    56,
                     Qt.AspectRatioMode.KeepAspectRatio,
                     Qt.TransformationMode.SmoothTransformation,
                 )
             )
-            lbl_logo.setStyleSheet("border-radius: 6px;")
+            lbl_logo.setStyleSheet("background: transparent;")
             lay_header.addWidget(lbl_logo)
 
         lay_titulos = QVBoxLayout()
         lay_titulos.setSpacing(2)
         titulo = QLabel("GENSAI PDF")
-        titulo.setStyleSheet("font-size: 22px; font-weight: 800; color: #F8FAFC; letter-spacing: 1px;")
-        subtitulo = QLabel(
-            "Compressão local em DPI controlado e fatiamento seguro para PJe, eproc e Projudi (LGPD)"
+        titulo.setStyleSheet(
+            "font-size: 21px; font-weight: 800; color: #F8FAFC; letter-spacing: 1.5px; background: transparent;"
         )
+        subtitulo = QLabel("Compressão local em DPI controlado e fatiamento seguro de PDFs")
         subtitulo.setWordWrap(True)
-        subtitulo.setStyleSheet("font-size: 12px; color: #94A3B8;")
+        subtitulo.setStyleSheet("font-size: 12px; color: #9CA3AF; background: transparent;")
         lay_titulos.addWidget(titulo)
         lay_titulos.addWidget(subtitulo)
         lay_header.addLayout(lay_titulos, 1)
@@ -253,8 +267,9 @@ class JanelaGensai(QMainWindow):
 
         # Pasta de destino
         lay_pasta = QHBoxLayout()
+        lay_pasta.setSpacing(10)
         lbl_pasta = QLabel("Pasta de saída:")
-        lbl_pasta.setMinimumWidth(105)
+        lbl_pasta.setFixedWidth(100)
         self.input_pasta = QLineEdit()
         self.input_pasta.setPlaceholderText("Mesma pasta do arquivo original")
         self.input_pasta.setReadOnly(True)
@@ -268,10 +283,11 @@ class JanelaGensai(QMainWindow):
 
         # Nível de compactação
         lay_nivel = QHBoxLayout()
+        lay_nivel.setSpacing(10)
         lbl_nivel = QLabel("Compactação:")
-        lbl_nivel.setMinimumWidth(105)
+        lbl_nivel.setFixedWidth(100)
         self.combo_nivel = QComboBox()
-        self.combo_nivel.addItem("Boa — 150 DPI (Recomendado para PJe)", "boa")
+        self.combo_nivel.addItem("Boa — 150 DPI (Recomendado)", "boa")
         self.combo_nivel.addItem("Extrema — 120 DPI (Máxima redução)", "extrema")
         self.combo_nivel.addItem("Razoável — 200 DPI (Documentos detalhados)", "razoavel")
         self.combo_nivel.addItem("Mínima — 300 DPI (Alta fidelidade)", "minima")
@@ -281,10 +297,11 @@ class JanelaGensai(QMainWindow):
 
         # Limite de tamanho por parte (botões rápidos + valor exato)
         lbl_lim = QLabel("Limite máximo por arquivo (MB):")
-        lbl_lim.setStyleSheet("font-weight: bold; color: #CBD5E1;")
+        lbl_lim.setStyleSheet("font-weight: 600; color: #D1D5DB;")
         layout.addWidget(lbl_lim)
 
         lay_botoes_lim = QHBoxLayout()
+        lay_botoes_lim.setSpacing(8)
         self.grupo_limites = QButtonGroup(self)
         perfis = [
             ("1,5 MB (TRT)", 1.5),
@@ -314,6 +331,7 @@ class JanelaGensai(QMainWindow):
 
         # Opções adicionais (PDF/A e Escala de Cinza)
         lay_opcoes = QHBoxLayout()
+        lay_opcoes.setSpacing(18)
         self.chk_pdfa = QCheckBox("Converter para padrão PDF/A-1b")
         self.chk_pdfa.setChecked(True)
         self.chk_cinza = QCheckBox("Converter para escala de cinza (mais leve)")
@@ -325,7 +343,7 @@ class JanelaGensai(QMainWindow):
         # Botão Principal + Barra de Progresso
         self.btn_executar = QPushButton("Executar Corte (Battousai)")
         self.btn_executar.setObjectName("BtnExecutar")
-        self.btn_executar.setMinimumHeight(44)
+        self.btn_executar.setMinimumHeight(42)
         self.btn_executar.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_executar.clicked.connect(self._iniciar_processamento)
         layout.addWidget(self.btn_executar)
@@ -334,20 +352,20 @@ class JanelaGensai(QMainWindow):
         self.progresso.setRange(0, 100)
         self.progresso.setValue(0)
         self.progresso.setTextVisible(False)
-        self.progresso.setFixedHeight(8)
+        self.progresso.setFixedHeight(6)
         layout.addWidget(self.progresso)
 
         # Área de resultado
         self.txt_resultado = QTextEdit()
         self.txt_resultado.setReadOnly(True)
         self.txt_resultado.setPlaceholderText("O resumo do corte e os arquivos gerados aparecerão aqui.")
-        self.txt_resultado.setMinimumHeight(110)
+        self.txt_resultado.setMinimumHeight(85)
         layout.addWidget(self.txt_resultado, 1)
 
         # Rodapé com botão Abrir Pasta
         lay_rodape = QHBoxLayout()
         self.lbl_status = QLabel("Pronto. Processamento 100% local.")
-        self.lbl_status.setStyleSheet("color: #94A3B8; font-size: 12px;")
+        self.lbl_status.setStyleSheet("color: #8B949E; font-size: 12px;")
         self.btn_abrir_pasta = QPushButton("Abrir Pasta de Destino")
         self.btn_abrir_pasta.setEnabled(False)
         self.btn_abrir_pasta.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -359,80 +377,97 @@ class JanelaGensai(QMainWindow):
     def _aplicar_estilo(self) -> None:
         self.setStyleSheet(
             """
-            QMainWindow, QWidget {
-                background-color: #1E293B;
-                color: #F1F5F9;
+            QMainWindow, #CentralWidget {
+                background-color: #16191F;
+                color: #E5E7EB;
                 font-family: 'Segoe UI', 'Cantarell', 'Ubuntu', sans-serif;
                 font-size: 13px;
             }
+            QLabel, QCheckBox {
+                background-color: transparent;
+                color: #E5E7EB;
+            }
             #AreaDrop {
-                border: 2px dashed #475569;
+                border: 1.5px dashed #3B4252;
                 border-radius: 10px;
-                background-color: #0F172A;
+                background-color: #1C2028;
             }
             #AreaDrop:hover {
-                border-color: #E11D48;
-                background-color: #162033;
+                border-color: #3B82F6;
+                background-color: #202530;
             }
             #BtnProcurar {
-                background-color: #1E293B;
-                border: 1px solid #38BDF8;
-                color: #38BDF8;
-                padding: 6px 16px;
+                background-color: #252932;
+                border: 1px solid #4B5563;
+                color: #E5E7EB;
+                padding: 4px 14px;
             }
             #BtnProcurar:hover {
-                background-color: #0284C7;
+                border-color: #60A5FA;
+                background-color: #2D3340;
                 color: #FFFFFF;
             }
             #BannerUpdate {
-                background-color: #064E3B;
-                border: 1px solid #10B981;
+                background-color: #132A2E;
+                border: 1px solid #0EA5E9;
                 border-radius: 6px;
-                padding: 4px 8px;
             }
             QLineEdit, QComboBox, QDoubleSpinBox, QTextEdit {
-                background-color: #0F172A;
-                border: 1px solid #334155;
+                background-color: #1C2028;
+                border: 1px solid #2E3440;
                 border-radius: 6px;
-                padding: 6px;
-                color: #F8FAFC;
+                padding: 6px 8px;
+                color: #F3F4F6;
+            }
+            QLineEdit:focus, QComboBox:focus, QDoubleSpinBox:focus, QTextEdit:focus {
+                border-color: #3B82F6;
             }
             QPushButton {
-                background-color: #334155;
-                border: 1px solid #475569;
+                background-color: #252932;
+                border: 1px solid #3B4252;
                 border-radius: 6px;
-                padding: 7px 12px;
-                color: #F8FAFC;
+                padding: 6px 12px;
+                color: #E5E7EB;
                 font-weight: 600;
             }
             QPushButton:hover {
-                background-color: #475569;
+                background-color: #2E3440;
+                border-color: #4C566A;
             }
             QPushButton:disabled {
-                background-color: #1E293B;
-                color: #64748B;
-                border-color: #334155;
+                background-color: #1C2028;
+                color: #6B7280;
+                border-color: #262B36;
             }
             #BtnPerfil:checked {
-                background-color: #BE123C;
-                border-color: #F43F5E;
+                background-color: #1D4ED8;
+                border-color: #3B82F6;
+                color: #FFFFFF;
             }
             #BtnExecutar {
-                background-color: #E11D48;
-                border: none;
-                font-size: 15px;
-                font-weight: bold;
+                background-color: #2563EB;
+                border: 1px solid #3B82F6;
+                color: #FFFFFF;
+                font-size: 14px;
+                font-weight: 700;
+                letter-spacing: 0.4px;
             }
             #BtnExecutar:hover {
-                background-color: #BE123C;
+                background-color: #1D4ED8;
+            }
+            #BtnExecutar:disabled {
+                background-color: #1E3A5F;
+                border-color: #1E3A5F;
+                color: #9CA3AF;
             }
             QProgressBar {
-                background-color: #0F172A;
-                border-radius: 4px;
+                background-color: #1C2028;
+                border: none;
+                border-radius: 3px;
             }
             QProgressBar::chunk {
-                background-color: #E11D48;
-                border-radius: 4px;
+                background-color: #3B82F6;
+                border-radius: 3px;
             }
             """
         )
@@ -480,7 +515,7 @@ class JanelaGensai(QMainWindow):
 
         self.btn_executar.setEnabled(False)
         self.btn_abrir_pasta.setEnabled(False)
-        self.progresso.setRange(0, 0)  # Barra indeterminada durante processamento
+        self.progresso.setRange(0, 0)
         self.lbl_status.setText("Processando com Ghostscript e pikepdf... Aguarde.")
         self.txt_resultado.clear()
 
