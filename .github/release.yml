@@ -1,0 +1,85 @@
+name: Gerar Instalador Windows (Gensai)
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Baixar o código do repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Instalar dependências atualizadas
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install -r requirements.txt
+
+      - name: Auditoria de Segurança nas Bibliotecas (Supply Chain)
+        run: |
+          pip install pip-audit
+          pip-audit -r requirements.txt --desc on
+
+      - name: Validar sintaxe do Python antes de compilar
+        run: |
+          python -m py_compile gensai.py interface.py src/battousai.py src/logger.py src/updater.py
+
+      - name: Fabricar aplicativo Windows (OneFile)
+      shell: pwsh
+      run: |
+        if (Test-Path "assets/gensai.ico") {
+          pyinstaller --noconfirm --windowed --onefile --name "gensai" --icon="assets/gensai.ico" --add-data "assets;assets" interface.py
+        } else {
+          pyinstaller --noconfirm --windowed --onefile --name "gensai" interface.py
+        }
+
+      - name: Extrair versão do Gensai para Tag Limpa
+        id: get_version
+        shell: pwsh
+        run: |
+          $content = Get-Content -Path "gensai.py" -Raw -Encoding UTF8
+          if ($content -match '__version__\s*=\s*["\x27]([^"\x27]+)["\x27]') {
+            $ver = $matches[1].Trim()
+          } else {
+            $ver = "0.1.0"
+          }
+          Write-Output "tag=v$ver" >> $env:GITHUB_OUTPUT
+          Write-Output "versao=$ver" >> $env:GITHUB_OUTPUT
+          Write-Host "Tag limpa gerada: v$ver"
+
+      - name: Compilar o Instalador (Inno Setup)
+        run: iscc /DMyAppVersion=${{ steps.get_version.outputs.versao }} gerador_gensai.iss
+
+      - name: Verificar se o Instalador foi gerado
+        shell: pwsh
+        run: |
+          if (-Not (Test-Path "Instalador_Final/Instalador_Gensai.exe")) {
+            Write-Error "O Inno Setup não gerou Instalador_Final/Instalador_Gensai.exe!"
+            exit 1
+          }
+          $item = Get-Item "Instalador_Final/Instalador_Gensai.exe"
+          Write-Host "Instalador validado: $($item.FullName) ($($item.Length) bytes)"
+
+      - name: Publicar Release e Instalador no GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Instalador_Final/Instalador_Gensai.exe
+          tag_name: ${{ steps.get_version.outputs.tag }}
+          name: Gensai PDF v${{ steps.get_version.outputs.versao }}
+          body: "Instalador oficial Windows do Gensai PDF v${{ steps.get_version.outputs.versao }} (GNU GPLv3)."
+          overwrite_files: true
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

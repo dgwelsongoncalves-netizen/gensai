@@ -6,6 +6,7 @@ Licença: GNU GPLv3
 """
 
 import io
+import os
 import platform
 import shutil
 import subprocess
@@ -63,8 +64,8 @@ def comprimir_pdf(
     escala_cinza: bool = False,
 ) -> Path:
     """
-    Comprime um PDF usando Ghostscript com reamostragem bicúbica,
-    compressão JPEG controlada e conformidade opcional com PDF/A.
+    Comprime um PDF usando Ghostscript com reamostragem rápida (/Average),
+    multi-threading, compressão JPEG controlada e conformidade opcional com PDF/A.
     """
     if nivel not in NIVEIS_COMPACTACAO:
         raise ValueError(f"Nível inválido. Escolha entre: {list(NIVEIS_COMPACTACAO.keys())}")
@@ -74,6 +75,7 @@ def comprimir_pdf(
     jpegq = str(perfil["jpegq"])
     preset = str(perfil["preset"])
     gs_bin = localizar_ghostscript()
+    threads = str(max(1, os.cpu_count() or 2))
 
     comando = [
         gs_bin,
@@ -83,6 +85,7 @@ def comprimir_pdf(
         "-dSAFER",
         "-dNOOUTERSAVE",
         "-dQUIET",
+        f"-dNumRenderingThreads={threads}",
         f"-dPDFSETTINGS={preset}",
         "-dEmbedAllFonts=true",
         "-dSubsetFonts=true",
@@ -92,8 +95,8 @@ def comprimir_pdf(
         "-dDownsampleColorImages=true",
         "-dDownsampleGrayImages=true",
         "-dDownsampleMonoImages=true",
-        "-dColorImageDownsampleType=/Bicubic",
-        "-dGrayImageDownsampleType=/Bicubic",
+        "-dColorImageDownsampleType=/Average",
+        "-dGrayImageDownsampleType=/Average",
         "-dMonoImageDownsampleType=/Subsample",
         "-dAutoFilterColorImages=false",
         "-dColorImageFilter=/DCTEncode",
@@ -124,11 +127,12 @@ def comprimir_pdf(
     ])
 
     logger.info(
-        "Iniciando Ghostscript (Nível: %s | DPI: %s | PDF/A: %s | Cinza: %s)...",
+        "Iniciando Ghostscript (Nível: %s | DPI: %s | PDF/A: %s | Cinza: %s | Threads: %s)...",
         nivel,
         dpi,
         pdfa_versao,
         escala_cinza,
+        threads,
     )
     t0 = time.perf_counter()
 
@@ -153,22 +157,21 @@ def comprimir_pdf(
 
 def _medir_intervalo_em_memoria(pdf_origem: pikepdf.Pdf, inicio: int, fim: int) -> int:
     """
-    Monta um PDF temporário estritamente sequencial (páginas de 'inicio' até 'fim - 1')
-    diretamente em memória RAM (io.BytesIO), limpando recursos órfãos para aferir
-    o tamanho real em bytes.
+    Mede o tamanho aproximado de um bloco sequencial [inicio : fim] em RAM (io.BytesIO).
+    Usa salvamento rápido (sem recompactar object streams) para acelerar a busca.
     """
     pdf_temp = pikepdf.Pdf.new()
     for i in range(inicio, fim):
         pdf_temp.pages.append(pdf_origem.pages[i])
 
-    # Essencial: impede que o pikepdf carregue a árvore inteira de objetos do PDF original
+    # Remove recursos órfãos para evitar falso estouro de limite
     pdf_temp.remove_unreferenced_resources()
 
     with io.BytesIO() as buffer:
         pdf_temp.save(
             buffer,
-            compress_streams=True,
-            object_stream_mode=pikepdf.ObjectStreamMode.generate,
+            compress_streams=False,
+            object_stream_mode=pikepdf.ObjectStreamMode.preserve,
         )
         return buffer.getbuffer().nbytes
 
@@ -181,8 +184,8 @@ def dividir_pdf_por_tamanho(
 ) -> List[Path]:
     """
     Fatia um PDF em múltiplos arquivos respeitando o teto em MB.
-    Utiliza busca binária combinada com medição em RAM (io.BytesIO) para
-    encontrar o ponto exato de corte com alta performance e ordem 100% preservada.
+    Utiliza Busca Exponencial (Galloping) + Busca Binária restrita em RAM (io.BytesIO)
+    para encontrar o ponto exato de corte com alta velocidade e ordem 100% preservada.
     """
     limite_bytes = int(limite_mb * 1024 * 1024)
     tamanho_atual = caminho_pdf.stat().st_size
@@ -196,7 +199,7 @@ def dividir_pdf_por_tamanho(
         )
         return [destino_unico]
 
-    logger.info("Iniciando fatiamento com busca binária (Limite: %.2f MB)...", limite_mb)
+    logger.info("Iniciando fatiamento otimizado (Limite: %.2f MB)...", limite_mb)
     t0 = time.perf_counter()
 
     arquivos_gerados: List[Path] = []
@@ -211,10 +214,26 @@ def dividir_pdf_por_tamanho(
             if inicio == total_paginas - 1:
                 melhor_fim = total_paginas
             else:
+                # 1. Busca Exponencial (Galloping): acha rapidamente o teto sem testar o PDF inteiro
+                salto = 8
                 baixo = inicio + 1
-                alto = total_paginas
-                melhor_fim = inicio + 1  # Garante avanço mínimo de 1 página por parte
+                alto = min(inicio + salto, total_paginas)
+                melhor_fim = inicio + 1
 
+                while alto <= total_paginas:
+                    tamanho_teste = _medir_intervalo_em_memoria(pdf_origem, inicio, alto)
+                    if tamanho_teste <= limite_bytes:
+                        melhor_fim = alto
+                        baixo = alto + 1
+                        if alto == total_paginas:
+                            break
+                        salto *= 2
+                        alto = min(inicio + salto, total_paginas)
+                    else:
+                        alto -= 1
+                        break
+
+                # 2. Busca Binária restrita apenas ao intervalo curto [baixo, alto]
                 while baixo <= alto:
                     meio = (baixo + alto) // 2
                     tamanho_teste = _medir_intervalo_em_memoria(pdf_origem, inicio, meio)
@@ -225,7 +244,7 @@ def dividir_pdf_por_tamanho(
                     else:
                         alto = meio - 1
 
-            # Grava apenas o arquivo final desta parte no disco
+            # Grava apenas o arquivo final desta parte no disco (com compressão completa)
             pdf_parte = pikepdf.Pdf.new()
             for i in range(inicio, melhor_fim):
                 pdf_parte.pages.append(pdf_origem.pages[i])
