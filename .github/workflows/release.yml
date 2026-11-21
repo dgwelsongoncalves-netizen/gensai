@@ -37,13 +37,13 @@ jobs:
           python -m py_compile gensai.py interface.py src/battousai.py src/logger.py src/updater.py
 
       - name: Fabricar aplicativo Windows (OneFile)
-      shell: pwsh
-      run: |
-        if (Test-Path "assets/gensai.ico") {
-          pyinstaller --noconfirm --windowed --onefile --name "gensai" --icon="assets/gensai.ico" --add-data "assets;assets" interface.py
-        } else {
-          pyinstaller --noconfirm --windowed --onefile --name "gensai" interface.py
-        }
+        shell: pwsh
+        run: |
+          if (Test-Path "assets/gensai.ico") {
+            pyinstaller --noconfirm --windowed --onefile --name "gensai" --icon="assets/gensai.ico" --add-data "assets;assets" interface.py
+          } else {
+            pyinstaller --noconfirm --windowed --onefile --name "gensai" interface.py
+          }
 
       - name: Extrair versão do Gensai para Tag Limpa
         id: get_version
