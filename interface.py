@@ -333,7 +333,7 @@ class JanelaGensai(QMainWindow):
         lay_opcoes = QHBoxLayout()
         lay_opcoes.setSpacing(18)
         self.chk_pdfa = QCheckBox("Converter para padrão PDF/A-1b")
-        self.chk_pdfa.setChecked(True)
+        self.chk_pdfa.setChecked(False)
         self.chk_cinza = QCheckBox("Converter para escala de cinza (mais leve)")
         lay_opcoes.addWidget(self.chk_pdfa)
         lay_opcoes.addWidget(self.chk_cinza)
