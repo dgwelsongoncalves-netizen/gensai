@@ -13,7 +13,7 @@ from pathlib import Path
 from src.battousai import NIVEIS_COMPACTACAO, executar_corte
 from src.logger import configurar_logger
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 logger = configurar_logger("gensai")
 
 
